@@ -20,6 +20,16 @@ export type QuizQuestion = {
       question: 'What is the largest mammal in the world?',
       options: ['Elephant', 'Blue Whale', 'Giraffe', 'Rhino'],
       correctAnswer: 'Blue Whale',
-    }
+    },
+    {
+        question: 'What is the boiling point of water?',
+        options: ['100°C', '0°C', '50°C'],
+        correctAnswer: '100°C',
+    },
+    {
+        question: 'What is the largest planet in our solar system?',
+        options: ['Mars', 'Jupiter', 'Venus'],
+        correctAnswer: 'Jupiter',
+    },
   ];
   

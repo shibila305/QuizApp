@@ -1,4 +1,4 @@
-// src/pages/index.tsx
+
 import Quiz from '../app/components/Quiz'
 
 const Home: React.FC = () => {

@@ -1,64 +1,84 @@
-
 "use client";
-import React, { useState } from 'react';
+import React, { useEffect } from 'react';
 import Question from './Question';
-import { quizQuestions, QuizQuestion } from '../components/quizData'
+import { quizQuestions, QuizQuestion } from '../components/quizData';
+import { useReactiveVar } from '@apollo/client';
+import { 
+  QuizComplete, 
+  CurrentQuestionVar, 
+  AnswersVar, 
+  CorrectAnswersCountVar, 
+  SelectedAnswerVar, 
+  TimeLeftVar 
+} from '../reactiveVar';
+
 
 const Quiz: React.FC = () => {
-  const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [answers, setAnswers] = useState<string[]>([]);
-  const [isQuizComplete, setIsQuizComplete] = useState(false);
-  const [correctAnswersCount, setCorrectAnswersCount] = useState(0);
-
+  const answers = useReactiveVar(AnswersVar);
+  const currentQuestion = useReactiveVar(CurrentQuestionVar);
+  const isQuizComplete = useReactiveVar(QuizComplete);
+  const correctAnswersCount = useReactiveVar(CorrectAnswersCountVar);
+  const selectedAnswer = useReactiveVar(SelectedAnswerVar);
+  const timeLeft = useReactiveVar(TimeLeftVar);
   const questions: QuizQuestion[] = quizQuestions;
 
+  useEffect(() => {
+    if (timeLeft === 0) {
+      handleNextQuestion();
+    }
+
+    const timer = setInterval(() => {
+      TimeLeftVar(timeLeft > 0 ? timeLeft - 1 : 0);
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [timeLeft]);
+
+  useEffect(() => {
+    TimeLeftVar(10); 
+  }, [currentQuestion]);
+
   const handleSelectAnswer = (selectedOption: string) => {
+    SelectedAnswerVar(selectedOption); 
     const newAnswers = [...answers];
     newAnswers[currentQuestion] = selectedOption;
-    setAnswers(newAnswers);
+    AnswersVar(newAnswers); 
   };
 
   const handleNextQuestion = () => {
     if (currentQuestion < questions.length - 1) {
-      setCurrentQuestion((prevQuestion) => prevQuestion + 1);
+      CurrentQuestionVar(currentQuestion + 1); 
+      SelectedAnswerVar(null); 
     } else {
       calculateCorrectAnswers();
-      setIsQuizComplete(true);
+      QuizComplete(true); 
     }
-  };
-
-  const handlePreviousQuestion = () => {
-    setCurrentQuestion((prevQuestion) => prevQuestion - 1);
   };
 
   const calculateCorrectAnswers = () => {
     const correctCount = answers.reduce((count, answer, index) => {
       return answer === questions[index].correctAnswer ? count + 1 : count;
     }, 0);
-    setCorrectAnswersCount(correctCount);
+    CorrectAnswersCountVar(correctCount); 
   };
 
   return (
     <div className="max-w-3xl mx-auto mt-8">
       {!isQuizComplete ? (
         <>
+          <div className="text-center">
+            <p className="text-red-500"> {timeLeft} seconds left!!!</p>
+          </div>
           <Question
             question={questions[currentQuestion].question}
             options={questions[currentQuestion].options}
             onSelectAnswer={handleSelectAnswer}
           />
-          <div className="flex justify-between mt-4">
-            {currentQuestion > 0 && (
-              <button
-                onClick={handlePreviousQuestion}
-                className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-              >
-                Previous Question
-              </button>
-            )}
+          <div className="flex justify-end mt-4">
             <button
               onClick={handleNextQuestion}
               className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+              disabled={!selectedAnswer}
             >
               {currentQuestion < questions.length - 1 ? 'Next Question' : 'Finish Quiz'}
             </button>
@@ -74,6 +94,6 @@ const Quiz: React.FC = () => {
       )}
     </div>
   );
-};
+}; 
 
 export default Quiz;
