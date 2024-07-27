@@ -1,7 +1,6 @@
 "use client";
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Question from './Question';
-import { quizQuestions, QuizQuestion } from '../components/quizData';
 import { useReactiveVar } from '@apollo/client';
 import { 
   QuizComplete, 
@@ -12,15 +11,56 @@ import {
   TimeLeftVar 
 } from '../reactiveVar';
 
+interface QuizQuestion {
+  question: string;
+  correctAnswer: string;
+  options: Record<string, string | null>; 
+}
 
 const Quiz: React.FC = () => {
+  const [questions, setQuestions] = useState<QuizQuestion[]>([]);
+  const [loading, setLoading] = useState(true);
   const answers = useReactiveVar(AnswersVar);
   const currentQuestion = useReactiveVar(CurrentQuestionVar);
   const isQuizComplete = useReactiveVar(QuizComplete);
   const correctAnswersCount = useReactiveVar(CorrectAnswersCountVar);
   const selectedAnswer = useReactiveVar(SelectedAnswerVar);
   const timeLeft = useReactiveVar(TimeLeftVar);
-  const questions: QuizQuestion[] = quizQuestions;
+
+    const fetchQuestions = async () => {
+      try {
+        const response = await fetch('https://quizapi.io/api/v1/questions?apiKey=w9LC2MQp2eTzUpPkVlUi34Xj5ziGBY8vd6NWGXf4&category=sql&difficulty=Easy&limit=5');
+        const data = await response.json();
+        console.log('API Response:', data);
+        const formattedQuestions = data.map((item: any) => {
+          const correctAnswerKey = Object.entries(item.correct_answers).find(
+            ([key, value]) => value === "true"
+          )?.[0];
+          
+          const correctAnswerKeyBase = correctAnswerKey?.replace('_correct', '');
+          const correctAnswer = item.answers[correctAnswerKeyBase ?? ''];
+
+          return {
+            question: item.question,
+            correctAnswer,
+            options: item.answers 
+          };
+        });
+
+        setQuestions(formattedQuestions);
+      } catch (error) {
+        console.error('Error fetching questions:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const effective=useRef(false);
+    if(!effective.current){
+      fetchQuestions();
+      effective.current=true;
+    }
+    
 
   useEffect(() => {
     if (timeLeft === 0) {
@@ -29,45 +69,57 @@ const Quiz: React.FC = () => {
 
     const timer = setInterval(() => {
       TimeLeftVar(timeLeft > 0 ? timeLeft - 1 : 0);
-    }, 1000);
+    }, 1500);
 
     return () => clearInterval(timer);
   }, [timeLeft]);
 
   useEffect(() => {
-    TimeLeftVar(10); 
+    TimeLeftVar(15);
   }, [currentQuestion]);
 
   const handleSelectAnswer = (selectedOption: string) => {
-    SelectedAnswerVar(selectedOption); 
+    SelectedAnswerVar(selectedOption);
     const newAnswers = [...answers];
     newAnswers[currentQuestion] = selectedOption;
-    AnswersVar(newAnswers); 
+    AnswersVar(newAnswers);
+    console.log('Selected Answer:', selectedOption);
+    console.log('Updated Answers:', newAnswers);
   };
 
   const handleNextQuestion = () => {
     if (currentQuestion < questions.length - 1) {
-      CurrentQuestionVar(currentQuestion + 1); 
-      SelectedAnswerVar(null); 
+      CurrentQuestionVar(currentQuestion + 1);
+      SelectedAnswerVar(null);
     } else {
       calculateCorrectAnswers();
-      QuizComplete(true); 
+      QuizComplete(true);
     }
   };
 
   const calculateCorrectAnswers = () => {
-    const correctCount = answers.reduce((count, answer, index) => {
-      return answer === questions[index].correctAnswer ? count + 1 : count;
-    }, 0);
-    CorrectAnswersCountVar(correctCount); 
+    let correctCount = 0;
+    questions.forEach((question, index) => {
+      console.log(`Question ${index}:`, question);
+      console.log(`User Answer:`, answers[index]);
+      if (answers[index] === question.correctAnswer) {
+        correctCount++;
+      }
+    });
+    CorrectAnswersCountVar(correctCount);
+    console.log('Correct Answers Count:', correctCount);
   };
+
+  if (loading) {
+    return <p>Loading...</p>;
+  }
 
   return (
     <div className="max-w-3xl mx-auto mt-8">
       {!isQuizComplete ? (
         <>
           <div className="text-center">
-            <p className="text-red-500"> {timeLeft} seconds left!!!</p>
+            <p className="text-red-500">{timeLeft} seconds left!!!</p>
           </div>
           <Question
             question={questions[currentQuestion].question}
@@ -94,6 +146,6 @@ const Quiz: React.FC = () => {
       )}
     </div>
   );
-}; 
+};
 
 export default Quiz;
