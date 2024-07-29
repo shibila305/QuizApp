@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect} from 'react';
 import Question from './Question';
 import { useReactiveVar } from '@apollo/client';
 import { 
@@ -8,18 +8,15 @@ import {
   AnswersVar, 
   CorrectAnswersCountVar, 
   SelectedAnswerVar, 
-  TimeLeftVar 
+  TimeLeftVar,
+  QuestionsVar,
+  LoadingVar
 } from '../reactiveVar';
 
-interface QuizQuestion {
-  question: string;
-  correctAnswer: string;
-  options: Record<string, string | null>; 
-}
 
 const Quiz: React.FC = () => {
-  const [questions, setQuestions] = useState<QuizQuestion[]>([]);
-  const [loading, setLoading] = useState(true);
+  const questions = useReactiveVar(QuestionsVar);
+  const loading = useReactiveVar(LoadingVar);
   const answers = useReactiveVar(AnswersVar);
   const currentQuestion = useReactiveVar(CurrentQuestionVar);
   const isQuizComplete = useReactiveVar(QuizComplete);
@@ -27,40 +24,38 @@ const Quiz: React.FC = () => {
   const selectedAnswer = useReactiveVar(SelectedAnswerVar);
   const timeLeft = useReactiveVar(TimeLeftVar);
 
-    const fetchQuestions = async () => {
-      try {
-        const response = await fetch('https://quizapi.io/api/v1/questions?apiKey=w9LC2MQp2eTzUpPkVlUi34Xj5ziGBY8vd6NWGXf4&category=sql&difficulty=Easy&limit=5');
-        const data = await response.json();
-        console.log('API Response:', data);
-        const formattedQuestions = data.map((item: any) => {
-          const correctAnswerKey = Object.entries(item.correct_answers).find(
-            ([key, value]) => value === "true"
-          )?.[0];
-          
-          const correctAnswerKeyBase = correctAnswerKey?.replace('_correct', '');
-          const correctAnswer = item.answers[correctAnswerKeyBase ?? ''];
+  const fetchQuestions = async () => {
+    try {
+      const response = await fetch('https://quizapi.io/api/v1/questions?apiKey=w9LC2MQp2eTzUpPkVlUi34Xj5ziGBY8vd6NWGXf4&category=sql&difficulty=Easy&limit=5');
+      const data = await response.json();
+      console.log('API Response:', data);
+      const formattedQuestions = data.map((item: any) => {
+        const correctAnswerKey = Object.entries(item.correct_answers).find(
+          ([key, value]) => value === "true"
+        )?.[0];
+        
+        const correctAnswerKeyBase = correctAnswerKey?.replace('_correct', '');
+        const correctAnswer = item.answers[correctAnswerKeyBase ?? ''];
 
-          return {
-            question: item.question,
-            correctAnswer,
-            options: item.answers 
-          };
-        });
+        return {
+          question: item.question,
+          correctAnswer,
+          options: item.answers 
+        };
+      });
 
-        setQuestions(formattedQuestions);
-      } catch (error) {
-        console.error('Error fetching questions:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    const effective=useRef(false);
-    if(!effective.current){
-      fetchQuestions();
-      effective.current=true;
+      QuestionsVar(formattedQuestions);
+    } catch (error) {
+      console.error('Error fetching questions:', error);
+    } finally {
+      LoadingVar(false);
     }
-    
+  };
+
+  useEffect(() => {
+    fetchQuestions();
+  }, []);
+  
 
   useEffect(() => {
     if (timeLeft === 0) {
@@ -77,6 +72,8 @@ const Quiz: React.FC = () => {
   useEffect(() => {
     TimeLeftVar(15);
   }, [currentQuestion]);
+
+  
 
   const handleSelectAnswer = (selectedOption: string) => {
     SelectedAnswerVar(selectedOption);
